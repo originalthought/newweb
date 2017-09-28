@@ -16,6 +16,10 @@ from apis import Page, APIValueError, APIResourceNotFoundError
 
 from models import User, Comment, Blog, next_id
 from config import configs
+import datetime
+import random
+import os
+
 
 COOKIE_NAME = 'awesession'
 _COOKIE_KEY = configs.session.secret
@@ -310,3 +314,45 @@ def api_delete_blog(request, *, id):
     blog = yield from Blog.find(id)
     yield from blog.remove()
     return dict(id=id)
+
+
+def gen_rnd_filename():
+    filename_prefix = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+    return '%s%s' % (filename_prefix, str(random.randrange(1000, 10000)))
+
+
+@post('/ckupload')
+def api_ckupload(*, CKEditorFuncNum, upload):
+    """ckeditor file upload"""
+    error = ''
+    url = ''
+    callback = CKEditorFuncNum
+    filename = upload.filename
+    fileobj = upload.file
+    fname, fext = os.path.splitext(filename)
+    rnd_name = '%s%s' % (gen_rnd_filename(), fext)
+    # save the image to static/upload
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+    filepath = os.path.join(path, 'upload', rnd_name)
+    # check whether directory exists, if not create ti
+    dirname = os.path.dirname(filepath)
+    if not os.path.exists(dirname):
+        try:
+            os.makedirs(dirname)
+        except:
+            error = 'ERROR_CREATE_DIR'
+    elif not os.access(dirname, os.W_OK):
+        error = 'ERROR_DIR_NOT_WRITEABLE'
+    if not error:
+        # You cannot rely on Content-Length if transfer is chunked.
+        with open(filepath, 'wb') as f:
+            chunk = fileobj.read()
+            f.write(chunk)
+
+    url = ('/static/%s/%s' % ('upload', rnd_name))
+
+    res = """<script type="text/javascript">
+  window.parent.CKEDITOR.tools.callFunction(%s, '%s', '%s');
+</script>""" % (callback, url, error)
+
+    return web.Response(body=res, content_type="text/html")
