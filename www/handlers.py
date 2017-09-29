@@ -154,7 +154,7 @@ def signout(request):
 
 @get('/manage/')
 def manage():
-    return 'redirect:/manage/comments'
+    return 'redirect:/manage/blogs'
 
 @get('/manage/comments')
 def manage_comments(*, page='1'):
